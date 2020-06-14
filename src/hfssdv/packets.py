@@ -69,12 +69,47 @@ def ssdv_packet_string(packet):
         return "SSDV: %s, Callsign: %s, Img:%d, Pkt:%d, %dx%d" % (packet_info['packet_type'],packet_info['callsign'],packet_info['image_id'],packet_info['packet_id'],packet_info['width'],packet_info['height'])
 
 
+MAX_PACKET_LIST = 120
 
-def encode_resend_packet(theircall, mycall, img_id, last_packet, packets):
+def encode_resend_packet(dstcall, srccall, img_id, last_packet, packets):
     """ Generate a Resend request packet """
-    pass
 
+    _resend_packet = struct.pack('B6s6sBH',
+        RESEND_HEADER,
+        srccall.encode(),
+        dstcall.encode(),
+        img_id,
+        last_packet)
+    
+
+
+    if len(packets) > MAX_PACKET_LIST:
+        packets = packets[:MAX_PACKET_LIST]
+    else:
+        packets = packets + [-1]*(MAX_PACKET_LIST-len(packets))
+    
+    for _i in packets:
+        _resend_packet += struct.pack('h',_i)
+
+
+    return _resend_packet
 
 def decode_resend_packet(packet):
     """ Decode a Resend request packet """
-    pass
+    _resend_struct = "B6s6sBH" + 'h'*MAX_PACKET_LIST
+
+    _fields = struct.unpack(_resend_struct, packet)
+
+    _output = {
+        'src_call': _fields[1],
+        'dst_call': _fields[2],
+        'img_id': _fields[3],
+        'last_packet': _fields[4],
+        'missing': []
+    }
+
+    for _i in range(5,len(_fields)):
+        if _fields[_i] != -1:
+            _output['missing'].append(_fields[_i])
+
+    return _output

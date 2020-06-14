@@ -24,6 +24,7 @@ from pyqtgraph.dockarea import *
 from threading import Thread
 
 from .widgets import *
+from .packets import *
 from .transmit import *
 from .receive import *
 
@@ -340,6 +341,8 @@ def rxPacketHandler(packet):
                     image_update_queue.put_nowait(
                         {'filename': _outfile,
                         'status': _status})
+            elif _resp['type'] == 'resend':
+                pass
                     
 
 def rxPacketLoop():
@@ -348,9 +351,8 @@ def rxPacketLoop():
     tnc.read(callback=rxPacketHandler)
 
 
-
 def saveImage():
-    """ Save a selected image """
+    """ Save a selected image to a file. """
     global rxImageList, image_store, latest_image
 
     # Get current selection
@@ -392,6 +394,48 @@ def saveImage():
 
 
 saveImageButton.clicked.connect(saveImage)
+
+
+def requestResend():
+    global rxImageList, userCallEntry, image_store, latest_image, tnc
+
+    # Get current selection
+    _selection = rxImageList.currentItem()
+    if _selection:
+        _selected_text = _selection.text()
+    else:
+        _selected_text = None
+
+    if _selected_text:
+        if _selected_text == 'Latest':
+            if latest_image:
+                _outimg = latest_image
+            else:
+                return
+        elif _selected_text == 'No Images':
+            return
+        else:
+            # Determine image based on call and ID
+            _fields = _selected_text.split(',')
+            _call = _fields[0]
+            _id = int(_fields[1])
+
+            _outimg = image_store[_call][_id]
+
+        _mycall = userCallEntry.text()
+        _theircall = _outimg['callsign']
+        _id = _outimg['id']
+        _lastpacket = max(list(_outimg['packets'].keys()))
+        _missing = _outimg['missing']
+
+        _resend_packet = encode_resend_packet(_theircall, _mycall, _id, _lastpacket, _missing)
+
+        if tnc:
+            tnc.write(_resend_packet)
+
+resendButton.clicked.connect(requestResend)
+
+
 
 # TNC Connect Function.
 def connectTNC():

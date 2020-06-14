@@ -111,9 +111,17 @@ class SSDVRX(object):
                     }
 
             elif packet[1] == RESEND_HEADER:
-                # TODO: Handle resend request
-                logging.info("Got resend request! (Not implemented yet)")
-                return None
+                try:
+                    _resend_data = decode_resend_packet(packet[1:])
+                except:
+                    return None
+
+                logging.info(f"Got resend request: {str(_resend_data)}")
+
+                return {
+                    'type': 'resend',
+                    'data': _resend_data
+                }
 
         else:
             logging.error("Unknown packet size.")

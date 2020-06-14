@@ -6,6 +6,8 @@ This code was written to make use of [xssfox's freedv-tnc](https://github.com/xs
 
 Written by Mark Jessop <vk5qi@rfhead.net>
 
+![Screenshot](screenshot.png)
+
 ## Usage
 
 ### Dependencies
