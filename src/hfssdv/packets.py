@@ -11,7 +11,6 @@ SSDV_RES_MULTIPLE = 16 # All SSDV packets need to have width/heights that are mu
 SSDV_HEADER = 0x55
 RESEND_HEADER = 0x50
 
-
 _ssdv_callsign_alphabet = '-0123456789---ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 def ssdv_decode_callsign(code):
     """ Decode a SSDV callsign from a supplied array of ints,
@@ -68,3 +67,14 @@ def ssdv_packet_string(packet):
     """ Produce a textual representation of a SSDV packet. """
     if packet_info:
         return "SSDV: %s, Callsign: %s, Img:%d, Pkt:%d, %dx%d" % (packet_info['packet_type'],packet_info['callsign'],packet_info['image_id'],packet_info['packet_id'],packet_info['width'],packet_info['height'])
+
+
+
+def encode_resend_packet(theircall, mycall, img_id, last_packet, packets):
+    """ Generate a Resend request packet """
+    pass
+
+
+def decode_resend_packet(packet):
+    """ Decode a Resend request packet """
+    pass

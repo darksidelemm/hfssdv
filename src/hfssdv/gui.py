@@ -60,6 +60,9 @@ ssdv_tx_thread_running = False
 image_update_queue = Queue(256)
 status_update_queue = Queue(256)
 
+image_store = {}
+latest_image = None
+
 
 
 #
@@ -153,10 +156,12 @@ w2 = pg.LayoutWidget()
 rxImageList = QtGui.QListWidget()
 rxImageList.addItem('No Images')
 resendButton = QtGui.QPushButton("Request Resend")
+saveImageButton = QtGui.QPushButton("Save Image")
 
 # Layout
 w2.addWidget(rxImageList,0,0,1,1)
 w2.addWidget(resendButton,1,0,1,1)
+w2.addWidget(saveImageButton,2,0,1,1)
 
 d1.addWidget(w2)
 
@@ -272,10 +277,49 @@ def abortTransmit():
 
 abortTxButton.clicked.connect(abortTransmit)
 
+
+def updateImageList():
+    """ Update the Image list based on data from an image store dict """
+    global rxImageList, image_store
+
+    # Get current selection
+    _selection = rxImageList.currentItem()
+    if _selection:
+        _selected_text = _selection.text()
+    else:
+        _selected_text = None
+    
+    # Clear list and re-populate from image store.
+    rxImageList.clear()
+    
+    _callsigns = list(image_store.keys())
+    _callsigns.sort()
+
+    for _call in _callsigns:
+        _images = list(image_store[_call].keys())
+        _images.sort()
+
+        for _img in _images:
+            _width = image_store[_call][_img]['width']
+            _height = image_store[_call][_img]['height']
+            _entry = f"{_call}, {_img}, {_width}x{_height}"
+            rxImageList.addItem(_entry)
+    
+
+    rxImageList.addItem('Latest')
+
+    # Iterate through the list and select the item which was previously selected
+    if _selected_text:
+        for i in range(rxImageList.count()):
+            if rxImageList.item(i).text() == _selected_text:
+                rxImageList.setCurrentRow(i)
+
+
+
 # Callback functions for receiving packets.
 def rxPacketHandler(packet):
     """ Handle a received packet """
-    global ssdv_rx
+    global ssdv_rx, image_store, latest_image
     logging.debug(f"Received New Packet: {str(packet)}")
 
     # Add to SSDV RX object
@@ -287,6 +331,9 @@ def rxPacketHandler(packet):
                 # Try and writeout the current image.
                 _outfile = ssdv_rx.decode(_resp['latest'])
 
+                image_store = _resp['store']
+                latest_image = _resp['latest']
+
                 if _outfile:
                     _status = f"Callsign: {_resp['latest']['callsign']}, ID: {_resp['latest']['id']}, Size: {_resp['latest']['width']}x{_resp['latest']['height']}px, Packets: {len(_resp['latest']['packets'])}, Missing: {len(_resp['latest']['missing'])}"
 
@@ -295,12 +342,56 @@ def rxPacketHandler(packet):
                         'status': _status})
                     
 
-
 def rxPacketLoop():
     """ Pass on a received packet to rxPacketHandler """
     global tnc
     tnc.read(callback=rxPacketHandler)
 
+
+
+def saveImage():
+    """ Save a selected image """
+    global rxImageList, image_store, latest_image
+
+    # Get current selection
+    _selection = rxImageList.currentItem()
+    if _selection:
+        _selected_text = _selection.text()
+    else:
+        _selected_text = None
+
+    if _selected_text:
+        if _selected_text == 'Latest':
+            if latest_image:
+                _outimg = latest_image
+            else:
+                return
+        elif _selected_text == 'No Images':
+            return
+        else:
+            # Determine image based on call and ID
+            _fields = _selected_text.split(',')
+            _call = _fields[0]
+            _id = int(_fields[1])
+
+            _outimg = image_store[_call][_id]
+        
+        _filename = f"./{_outimg['time']}_{_outimg['callsign']}_{_outimg['id']}.jpg"
+
+        # Prompt for save location
+        fname = QtWidgets.QFileDialog.getSaveFileName(None,'Save Image',_filename,"Image files (*.jpg *.jpeg)")
+
+        if fname[0] != "":
+            _filename = fname[0]
+
+            # Decode and save file!
+            if ssdv_rx.decode(_outimg, outfile=_filename):
+                logging.info(f"Saved image to {_filename}")
+            else:
+                logging.error("Could not save image.")
+
+
+saveImageButton.clicked.connect(saveImage)
 
 # TNC Connect Function.
 def connectTNC():
@@ -339,6 +430,8 @@ def updateImageDisplay():
 
         changeImage(_data['filename'])
         rxImageStatus.setText(_data['status'])
+
+        updateImageList()
 
 
 image_update_timer = QtCore.QTimer()

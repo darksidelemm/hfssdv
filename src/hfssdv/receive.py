@@ -88,7 +88,8 @@ class SSDVRX(object):
                         'width': _width,
                         'height': _height,
                         'callsign': _callsign,
-                        'id': _img_id
+                        'id': _img_id,
+                        'time': datetime.datetime.utcnow().strftime("%Y-%m-%dT%H%M%S")
                     }
 
                 else:
