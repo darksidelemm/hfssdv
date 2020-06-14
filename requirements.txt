@@ -1,0 +1,4 @@
+pillow
+kissfix
+PyQt5==5.14.0
+pyqtgraph
