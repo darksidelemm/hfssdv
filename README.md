@@ -4,9 +4,17 @@ Send Slow-Scan Digital Video (images) over HF via a KISS TNC!
 
 This code was written to make use of [xssfox's freedv-tnc](https://github.com/xssfox/freedv-tnc) application, which makes uses of the FreeDV OFDM modem to transmit data over a HF channel. It may work over other KISS TNCs that present a TCP interface, but this has not been tested.
 
+** Warning: This is all pretty hacky, and needs a lot of cleanup. Also features are still in the process of being implemented. **
+
 Written by Mark Jessop <vk5qi@rfhead.net>
 
 ![Screenshot](screenshot.png)
+
+### TODO List
+* Implement Resend of missing packets.
+* Switch between received images in GUI.
+* Refactor and cleanup.
+
 
 ## Usage
 
