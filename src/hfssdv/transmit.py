@@ -168,8 +168,70 @@ class SSDVTX(object):
                 status_callback(_error)
 
 
+
+    def check_resend_ability(self, image_id, last_packet, missing):
+        """ Check if we have an image in our store, and work out how many packets we will need to send """
+
+        if image_id in self.image_store:
+
+            _to_send = []
+
+            for _pkt in range(len(self.image_store[image_id]['packets'])):
+                if _pkt in missing:
+                    _to_send.append(_pkt)
+                elif _pkt > last_packet:
+                    _to_send.append(_pkt)
+
+            if len(_to_send) > 0:
+                return _to_send
+            else:
+                return None
+
+        else:
+            return None
+
+
+    def transmit_image_subset(self, image_id, packets, tnc, delay=7, status_callback=None):
+        """ Transmit the current loaded image through the supplied KISS TNC """
+
+        if image_id in self.image_store:
+            _i = 1
+            for _pkt in packets:
+                _packet = self.image_store[self.current_image]['packets'][_pkt]
+                tnc.write(_packet)
+                
+                _status = f"TXing Image {self.current_image} packet {_i}/{len(packets)}."
+                logging.info(_status)
+                if status_callback:
+                    status_callback(_status)
+                
+                time.sleep(delay)
+                _i += 1
+
+                if self.abort_tx:
+                    _status = "Aborting Transmission"
+                    logging.info(_status)
+                    if status_callback:
+                        status_callback(_status)
+
+                    self.abort_tx = False
+                    return
+
+            _status = "Transmit Done."
+            logging.info(_status)
+            if status_callback:
+                status_callback(_status)
+        
+        else:
+            _error = "No image to transmit."
+            logging.error(_error)
+            if status_callback:
+                status_callback(_error)
+
+
     def abort(self):
         self.abort_tx = True
+
 
 if __name__ == "__main__":
     # Simple test script.

@@ -101,8 +101,8 @@ def decode_resend_packet(packet):
     _fields = struct.unpack(_resend_struct, packet)
 
     _output = {
-        'src_call': _fields[1],
-        'dst_call': _fields[2],
+        'src_call': _fields[1].decode('ascii').strip('\x00'),
+        'dst_call': _fields[2].decode('ascii').strip('\x00'),
         'img_id': _fields[3],
         'last_packet': _fields[4],
         'missing': []

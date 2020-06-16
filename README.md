@@ -11,7 +11,6 @@ Written by Mark Jessop <vk5qi@rfhead.net>
 ![Screenshot](screenshot.png)
 
 ### TODO List
-* Implement Resend of missing packets.
 * Switch between received images in GUI.
 * Refactor and cleanup.
 

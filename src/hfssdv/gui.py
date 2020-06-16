@@ -342,7 +342,9 @@ def rxPacketHandler(packet):
                         {'filename': _outfile,
                         'status': _status})
             elif _resp['type'] == 'resend':
-                pass
+                status_update_queue.put_nowait(
+                    _resp
+                )
                     
 
 def rxPacketLoop():
@@ -435,6 +437,86 @@ def requestResend():
 
 resendButton.clicked.connect(requestResend)
 
+resend_image_info = None
+
+def handleStatusUpdate(data):
+    """ Handle a status update message """
+    global ssdv_tx, tnc, userCallEntry, resend_image_info
+    if (data['type'] == 'resend'):
+        # Someone else has requested a resend of parts of an image.
+
+        # Check re-send request is for us.
+        _call = data['data']['dst_call']
+        if _call != userCallEntry.text():
+            logging.info(f"Got Resend request for {_call}, discarding.")
+            return
+
+        _src_call = data['data']['src_call']
+        _img_id = data['data']['img_id']
+        _last_pkt = data['data']['last_packet']
+        _missing = data['data']['missing']
+
+        # Check if we have image data to resend.
+        _resend_list = ssdv_tx.check_resend_ability(_img_id, _last_pkt, _missing)
+
+        if _resend_list:
+            # Check with the user to confirm resend.
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText(f"Re-send {len(_resend_list)} packets of Image {_img_id} to {_src_call}?")
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+            reply = msgBox.exec_()
+            if reply == QtWidgets.QMessageBox.No:
+                return
+            else:
+                # Resend.
+                resend_image_info = {'img_id': _img_id, 'packets':_resend_list}
+                if tnc is None:
+                    error_dialog = QtWidgets.QErrorMessage()
+                    error_dialog.showMessage('No TNC Connected!')
+                    error_dialog.exec_()
+                    return
+
+                # Start up a thread to transmit an image
+                if ssdv_tx_thread_running:
+                    error_dialog = QtWidgets.QErrorMessage()
+                    error_dialog.showMessage('Transmission already in progress!')
+                    error_dialog.exec_()
+                    return
+
+                else:
+                    ssdv_tx_thread = Thread(target=resendImageThread)
+                    ssdv_tx_thread.start()
+
+        else:
+            logging.info(f"Received resend request for img ID {_img_id}, but not in database.")
+
+
+def resendImageThread():
+    global ssdv_tx, txImageStatus, tnc, resend_image_info
+
+    ssdv_tx_thread_running = True
+
+    if resend_image_info:
+        try:
+            _delay = int(packetDelayEntry.text())
+            _callback = txImageStatus.setText
+            ssdv_tx.transmit_image_subset(
+                image_id=resend_image_info['img_id'],
+                packets=resend_image_info['packets'],
+                tnc=tnc,
+                delay=_delay,
+                status_callback=_callback
+            )
+        except Exception as e:
+            _error = f"Error sending image: {str(e)}"
+            logging.error(_error)
+
+    resend_image_info = None
+    ssdv_tx_thread_running = False
+
+
+
 
 
 # TNC Connect Function.
@@ -465,9 +547,9 @@ tncConnectButton.clicked.connect(connectTNC)
 
 
 # GUI Image Update Loop
-def updateImageDisplay():
-    """ Read in data from the image update queue, and update the image display and status """
-    global image_update_queue, rxImageStatus
+def processQueues():
+    """ Read in data from the queues, this decouples the GUI and async inputs somewhat. """
+    global image_update_queue, status_update_queue, rxImageStatus
 
     while image_update_queue.qsize() > 0:
         _data = image_update_queue.get()
@@ -477,9 +559,12 @@ def updateImageDisplay():
 
         updateImageList()
 
+    while status_update_queue.qsize() > 0:
+        handleStatusUpdate(status_update_queue.get())
+
 
 image_update_timer = QtCore.QTimer()
-image_update_timer.timeout.connect(updateImageDisplay)
+image_update_timer.timeout.connect(processQueues)
 image_update_timer.start(250)
 
 
