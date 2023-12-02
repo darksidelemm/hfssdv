@@ -1,4 +1,4 @@
 pillow
 kissfix
 PyQt5
-pyqtgraph
+pyqtgraph==0.12.4
